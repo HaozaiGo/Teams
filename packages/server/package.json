@@ -12,6 +12,7 @@
   "dependencies": {
     "express": "^4.21.2",
     "ws": "^8.18.0",
+    "y-leveldb": "^0.1.2",
     "y-websocket": "^2.1.0",
     "yjs": "^13.6.24"
   },

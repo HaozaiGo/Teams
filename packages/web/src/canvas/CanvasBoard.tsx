@@ -33,6 +33,7 @@ type Props = {
 }
 
 export type CanvasBoardHandle = { exportPng: (name: string) => void }
+type Viewport = { x: number; y: number; scale: number }
 type TextEditor = {
   x: number
   y: number
@@ -42,8 +43,28 @@ type TextEditor = {
   editing?: CanvasElement
 }
 
-function pointer(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>): Point | null {
-  return e.target.getStage()?.getPointerPosition() ?? null
+const MIN_ZOOM = 0.25
+const MAX_ZOOM = 3
+const ZOOM_STEP = 1.18
+
+function clamp(n: number, min: number, max: number) {
+  return Math.min(Math.max(n, min), max)
+}
+
+function screenToWorld(p: Point, viewport: Viewport): Point {
+  return {
+    x: (p.x - viewport.x) / viewport.scale,
+    y: (p.y - viewport.y) / viewport.scale,
+  }
+}
+
+function isTypingTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && !!target.closest('input, textarea, select, button, [contenteditable="true"]')
+}
+
+function pointer(e: Konva.KonvaEventObject<MouseEvent | TouchEvent>, viewport: Viewport): Point | null {
+  const p = e.target.getStage()?.getPointerPosition()
+  return p ? screenToWorld(p, viewport) : null
 }
 
 function renderedPosition(element: CanvasElement): Point {
@@ -77,6 +98,9 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
   const [draft, setDraft] = useState<CanvasElement | null>(null)
   const [textEditor, setTextEditor] = useState<TextEditor | null>(null)
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight - 56 })
+  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
+  const [spaceDown, setSpaceDown] = useState(false)
+  const [panning, setPanning] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const textInputRef = useRef<HTMLTextAreaElement>(null)
   const stageRef = useRef<Konva.Stage>(null)
@@ -85,9 +109,15 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
   const skipTextCommitRef = useRef(false)
   const shapeStartRef = useRef<Point | null>(null)
   const drawingRef = useRef(false)
+  const viewportRef = useRef(viewport)
+  const spaceDownRef = useRef(spaceDown)
+  const panRef = useRef<{ x: number; y: number; viewport: Viewport; moved: boolean } | null>(null)
+  const suppressClearRef = useRef(false)
   const toolRef = useRef(tool)
   const propsRef = useRef({ color, strokeWidth, userId, elements })
 
+  viewportRef.current = viewport
+  spaceDownRef.current = spaceDown
   toolRef.current = tool
   propsRef.current = { color, strokeWidth, userId, elements }
 
@@ -129,6 +159,27 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
       trRef.current.nodes([])
     }
   }, [selectedId, elements])
+
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.code !== 'Space' || isTypingTarget(ev.target)) return
+      ev.preventDefault()
+      spaceDownRef.current = true
+      setSpaceDown(true)
+    }
+    const onKeyUp = (ev: KeyboardEvent) => {
+      if (ev.code === 'Space') {
+        spaceDownRef.current = false
+        setSpaceDown(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [])
 
   useEffect(() => {
     if (!textEditor) return
@@ -262,7 +313,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
 
   const onDrawDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (toolRef.current === 'select') return
-    const p = pointer(e)
+    const p = pointer(e, viewportRef.current)
     if (!p) return
     e.evt.preventDefault()
     if (toolRef.current === 'text') {
@@ -274,18 +325,111 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
 
   const onDrawMove = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     if (!drawingRef.current) return
-    const p = pointer(e)
+    const p = pointer(e, viewportRef.current)
     if (p) moveDraw(p)
   }
 
-  useEffect(() => {
-    window.addEventListener('mouseup', endDraw)
-    window.addEventListener('touchend', endDraw)
-    return () => {
-      window.removeEventListener('mouseup', endDraw)
-      window.removeEventListener('touchend', endDraw)
+  const zoomAt = useCallback((screenPoint: Point, nextScale: number) => {
+    setViewport((current) => {
+      const scale = clamp(nextScale, MIN_ZOOM, MAX_ZOOM)
+      const worldPoint = screenToWorld(screenPoint, current)
+      return {
+        scale,
+        x: screenPoint.x - worldPoint.x * scale,
+        y: screenPoint.y - worldPoint.y * scale,
+      }
+    })
+  }, [])
+
+  const zoomBy = useCallback(
+    (factor: number) => {
+      zoomAt({ x: size.w / 2, y: size.h / 2 }, viewportRef.current.scale * factor)
+    },
+    [size.h, size.w, zoomAt]
+  )
+
+  const resetZoom = useCallback(() => {
+    setViewport({ x: 0, y: 0, scale: 1 })
+  }, [])
+
+  const onWheel = useCallback(
+    (e: Konva.KonvaEventObject<WheelEvent>) => {
+      e.evt.preventDefault()
+      const stage = e.target.getStage()
+      const screenPoint = stage?.getPointerPosition()
+      if (!screenPoint) return
+      const factor = e.evt.deltaY > 0 ? 1 / ZOOM_STEP : ZOOM_STEP
+      zoomAt(screenPoint, viewportRef.current.scale * factor)
+    },
+    [zoomAt]
+  )
+
+  const startPan = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (!('clientX' in e.evt) || !('clientY' in e.evt)) return
+    e.evt.preventDefault()
+    panRef.current = {
+      x: e.evt.clientX,
+      y: e.evt.clientY,
+      viewport: viewportRef.current,
+      moved: false,
     }
-  }, [endDraw])
+    setPanning(true)
+  }, [])
+
+  const movePan = useCallback((e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const pan = panRef.current
+    if (!pan || !('clientX' in e.evt) || !('clientY' in e.evt)) return false
+    e.evt.preventDefault()
+    const dx = e.evt.clientX - pan.x
+    const dy = e.evt.clientY - pan.y
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) pan.moved = true
+    setViewport({
+      ...pan.viewport,
+      x: pan.viewport.x + dx,
+      y: pan.viewport.y + dy,
+    })
+    return true
+  }, [])
+
+  const endPan = useCallback(() => {
+    if (!panRef.current) return
+    suppressClearRef.current = panRef.current.moved
+    panRef.current = null
+    setPanning(false)
+    window.setTimeout(() => {
+      suppressClearRef.current = false
+    }, 0)
+  }, [])
+
+  const isPanMouse = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    return e.evt instanceof MouseEvent && (e.evt.button === 1 || spaceDownRef.current)
+  }
+
+  const onPointerDown = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (isPanMouse(e)) {
+      startPan(e)
+      return
+    }
+    if (hasInputSurface) onDrawDown(e)
+  }
+
+  const onPointerMove = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    if (movePan(e)) return
+    if (hasInputSurface) onDrawMove(e)
+  }
+
+  useEffect(() => {
+    const onUp = () => {
+      endPan()
+      endDraw()
+    }
+    window.addEventListener('mouseup', onUp)
+    window.addEventListener('touchend', onUp)
+    return () => {
+      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('touchend', onUp)
+    }
+  }, [endDraw, endPan])
 
   const handleTransformEnd = () => {
     if (!selectedId || !stageRef.current) return
@@ -357,6 +501,18 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
   const interactive = tool === 'select'
   const drawing = tool !== 'select' && tool !== 'text'
   const hasInputSurface = drawing || tool === 'text'
+  const backgroundX = -viewport.x / viewport.scale - 1000
+  const backgroundY = -viewport.y / viewport.scale - 1000
+  const backgroundWidth = size.w / viewport.scale + 2000
+  const backgroundHeight = size.h / viewport.scale + 2000
+  const textEditorStyle = textEditor
+    ? {
+        left: textEditor.x * viewport.scale + viewport.x,
+        top: textEditor.y * viewport.scale + viewport.y,
+        color: textEditor.color,
+        fontSize: textEditor.fontSize * viewport.scale,
+      }
+    : undefined
 
   return (
     <div ref={wrapRef} className="canvas-wrap" style={{ touchAction: 'none' }}>
@@ -364,22 +520,31 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
         ref={stageRef}
         width={size.w}
         height={size.h}
-        onMouseDown={hasInputSurface ? onDrawDown : undefined}
-        onMouseMove={hasInputSurface ? onDrawMove : undefined}
+        x={viewport.x}
+        y={viewport.y}
+        scaleX={viewport.scale}
+        scaleY={viewport.scale}
+        onWheel={onWheel}
+        onMouseDown={onPointerDown}
+        onMouseMove={onPointerMove}
         onTouchStart={hasInputSurface ? onDrawDown : undefined}
         onTouchMove={hasInputSurface ? onDrawMove : undefined}
-        style={{ cursor: drawing ? 'crosshair' : tool === 'text' ? 'text' : 'default' }}
+        style={{ cursor: panning ? 'grabbing' : spaceDown ? 'grab' : drawing ? 'crosshair' : tool === 'text' ? 'text' : 'default' }}
       >
         <Layer>
           <Rect
-            x={0}
-            y={0}
-            width={size.w}
-            height={size.h}
+            x={backgroundX}
+            y={backgroundY}
+            width={backgroundWidth}
+            height={backgroundHeight}
             fill="#fbfdff"
             listening={interactive || hasInputSurface}
-            onClick={() => onSelect(null)}
-            onTap={() => onSelect(null)}
+            onClick={() => {
+              if (!suppressClearRef.current) onSelect(null)
+            }}
+            onTap={() => {
+              if (!suppressClearRef.current) onSelect(null)
+            }}
           />
         </Layer>
         <Layer>
@@ -424,7 +589,7 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
           ref={textInputRef}
           className="text-editor"
           value={textEditor.value}
-          style={{ left: textEditor.x, top: textEditor.y, color: textEditor.color, fontSize: textEditor.fontSize }}
+          style={textEditorStyle}
           placeholder="输入文字"
           onChange={(e) => setTextEditor((current) => (current ? { ...current, value: e.target.value } : current))}
           onBlur={commitText}
@@ -440,6 +605,17 @@ export const CanvasBoard = forwardRef<CanvasBoardHandle, Props>(function CanvasB
           }}
         />
       )}
+      <div className="zoom-controls" aria-label="缩放控制">
+        <button type="button" onClick={() => zoomBy(1 / ZOOM_STEP)} aria-label="缩小">
+          -
+        </button>
+        <button type="button" onClick={resetZoom} aria-label="重置缩放">
+          {Math.round(viewport.scale * 100)}%
+        </button>
+        <button type="button" onClick={() => zoomBy(ZOOM_STEP)} aria-label="放大">
+          +
+        </button>
+      </div>
     </div>
   )
 })

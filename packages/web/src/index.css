@@ -157,11 +157,7 @@ body {
   flex: 1;
   min-height: 0;
   position: relative;
-  background:
-    linear-gradient(#e5e7eb 1px, transparent 1px),
-    linear-gradient(90deg, #e5e7eb 1px, transparent 1px),
-    #f8fafc;
-  background-size: 32px 32px;
+  background: #fbfdff;
 }
 
 .text-editor {
@@ -178,6 +174,40 @@ body {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 14px 36px rgba(15, 23, 42, 0.16);
   font: 22px/1.35 system-ui, -apple-system, sans-serif;
+  transform-origin: left top;
+}
+
+.zoom-controls {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+}
+
+.zoom-controls button {
+  min-width: 42px;
+  height: 34px;
+  border: 0;
+  border-right: 1px solid #e2e8f0;
+  background: transparent;
+  color: #1f2937;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.zoom-controls button:last-child {
+  border-right: 0;
+}
+
+.zoom-controls button:hover {
+  background: #f1f5f9;
 }
 
 @media (max-width: 760px) {

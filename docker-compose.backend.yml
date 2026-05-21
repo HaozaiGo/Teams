@@ -1,6 +1,10 @@
 services:
-  app:
-    build: .
+  whiteboard-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: teams-whiteboard-server
+    restart: unless-stopped
     ports:
       - "4000:4000"
     environment:
