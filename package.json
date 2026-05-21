@@ -1,0 +1,16 @@
+{
+  "name": "teams-whiteboard",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w web\"",
+    "build": "npm run build -w web",
+    "start": "npm run start -w server",
+    "test": "npm run test -w web && npm run test:smoke -w server",
+    "test:unit": "npm run test:unit -w web",
+    "test:smoke": "npm run test:smoke -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
