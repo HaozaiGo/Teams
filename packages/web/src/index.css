@@ -32,6 +32,7 @@ body {
 }
 
 .toolbar-left,
+.toolbar-center,
 .toolbar-right {
   display: flex;
   align-items: center;
@@ -41,6 +42,11 @@ body {
 
 .toolbar-left {
   min-width: 0;
+}
+
+.toolbar-center {
+  justify-content: center;
+  flex: 0 0 auto;
 }
 
 .tool-group,
@@ -65,6 +71,48 @@ body {
   cursor: pointer;
   font-size: 13px;
   line-height: 1.2;
+}
+
+.toolbar-link,
+.primary-button {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.toolbar-link:hover,
+.primary-button:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.toolbar-link.active {
+  background: #e0f2fe;
+  border-color: #38bdf8;
+  color: #075985;
+}
+
+.primary-button {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.primary-button:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
 }
 
 .toolbar button:hover {
@@ -210,6 +258,273 @@ body {
   background: #f1f5f9;
 }
 
+.board-app {
+  background: #f8fafc;
+}
+
+.board-header {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #ffffff;
+  border-bottom: 1px solid #d8dee8;
+  gap: 12px;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+  z-index: 2;
+}
+
+.board-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.board-filter {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.board-filter select {
+  min-width: 104px;
+  border: 0;
+  background: transparent;
+  color: #1f2937;
+  font: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.board-main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+}
+
+.board-table-wrap {
+  min-width: 900px;
+  overflow: visible;
+  border: 1px solid #d8dee8;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.agile-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.agile-table th,
+.agile-table td {
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  padding: 8px;
+  vertical-align: middle;
+}
+
+.agile-table th:last-child,
+.agile-table td:last-child {
+  border-right: 0;
+}
+
+.agile-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.agile-table tr.status-doing td {
+  background: #f0fdf4;
+}
+
+.agile-table tr.status-doing input,
+.agile-table tr.status-doing select {
+  color: #166534;
+}
+
+.agile-table tr.status-review td {
+  background: #fffbeb;
+}
+
+.agile-table tr.status-review input,
+.agile-table tr.status-review select {
+  color: #92400e;
+}
+
+.agile-table tr.status-done td {
+  background: #ecfdf5;
+}
+
+.agile-table tr.status-done input,
+.agile-table tr.status-done select {
+  color: #065f46;
+}
+
+.agile-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 40px;
+  background: #f1f5f9;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.agile-table input,
+.agile-table select {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: transparent;
+  color: #111827;
+  font: inherit;
+  font-size: 14px;
+}
+
+.agile-table input:focus,
+.agile-table select:focus {
+  outline: none;
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.agile-table select {
+  cursor: pointer;
+}
+
+.task-cell {
+  width: 28%;
+}
+
+.tooltip-cell {
+  position: relative;
+}
+
+.tooltip-cell[data-full]:hover::after {
+  content: attr(data-full);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 8;
+  width: max-content;
+  max-width: min(560px, 78vw);
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: normal;
+  word-break: break-word;
+  pointer-events: none;
+}
+
+.row-action {
+  width: 132px;
+  text-align: center;
+}
+
+.row-actions {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.row-actions button {
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.row-actions button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.row-actions .danger {
+  color: #b91c1c;
+}
+
+.row-actions .danger:hover {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.empty-row {
+  height: 96px;
+  text-align: center;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 6px 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.pagination button,
+.page-size {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1f2937;
+  font: inherit;
+}
+
+.pagination button {
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.page-size select {
+  border: 0;
+  background: transparent;
+  color: #1f2937;
+  font: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.page-index {
+  min-width: 52px;
+  text-align: center;
+}
+
 @media (max-width: 760px) {
   .toolbar {
     align-items: flex-start;
@@ -219,8 +534,26 @@ body {
     width: 100%;
   }
 
+  .toolbar-center {
+    order: 2;
+  }
+
   .tool-group {
     max-width: 100%;
     overflow-x: auto;
+  }
+
+  .board-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .board-main {
+    padding: 12px;
+  }
+
+  .pagination {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 }

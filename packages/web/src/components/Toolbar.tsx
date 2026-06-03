@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { Tool } from '../types/element'
 
 type Props = {
@@ -95,6 +96,11 @@ export function Toolbar({
             清空
           </button>
         </div>
+      </div>
+      <div className="toolbar-center">
+        <Link className="toolbar-link" to={`/room/${roomId}/board`}>
+          敏捷看板
+        </Link>
       </div>
       <div className="toolbar-right" title={online.join(', ')}>
         <span className={connected ? 'dot ok' : 'dot'} />
